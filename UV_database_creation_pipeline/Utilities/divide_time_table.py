@@ -13,7 +13,7 @@ def divide_time_table(argv):
     :arg[1]: Name of the catalogue file
     """
     with fits.open(roots_tfm + '/'+argv[1]+'/'+argv[2]) as hdul:
-        df = Table(hdul[2].data).to_pandas()
+        df = Table(hdul[-1].data).to_pandas()
 
     df_chunks = np.array_split(df,3)
 
