@@ -13,7 +13,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
 	COUNT="$(stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp.csv \
 	in2=$datapath/SOURCE_complete_galaxies.csv matcher=skyerr \
 	values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
-	join=1and2 find=all params=1 omode=count progress=none \
+	join=1and2 find=best params=1 omode=count progress=none \
     | cut -d ":" -f 3)"
 
     echo "Number of matches : ${COUNT}"
@@ -25,26 +25,26 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
         ocmd="addcol angDist skyDistanceDegrees(ra_1,dec_1,RA_2,DEC_2)*3600" \
         ocmd='keepcols "objid ra_1 dec_1 fuv_flux fuv_fluxerr nuv_flux \
 	    nuv_fluxerr nuv_poserr SRCNUM_1 SRCNUM_2 RA_2 DEC_2 POSERR COUNT angDist"' \
-	    join=1and2 find=all ofmt=csv params=1 out=$datapath/Galex/temp_match.csv \
+	    join=1and2 find=best ofmt=csv params=1 out=$datapath/Galex/temp_match.csv \
         progress=none
 
         echo "Computing random match values"
         stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp.csv \
         in2=$datapath/SOURCE_complete_galaxies_rand.csv matcher=skyerr \
-        values1="RA DEC 3*POSERR" values2="ra dec 0" \
+        values1="ra dec 0" values2="RA DEC 3*POSERR" \
         join=1and2 find=best params=1 omode=count >> $datapath/Galex/count_random_match.txt
 
 	    if [ $j -gt 0 ]; then
       		echo "Concatenating matched slices"
-		    stilts tcat ifmt=csv in="$datapath/Galex/match_Galex_UVOT_OM_all.csv \
+		    stilts tcat ifmt=csv in="$datapath/Galex/match_Galex_UVOT_OM_best.csv \
             $datapath/Galex/temp_match.csv" \
             icmd="replacecol SRCNUM_1 toInteger(SRCNUM_1)" \
             icmd="replacecol SRCNUM_2 toInteger(SRCNUM_2)" \
             out=$datapath/Galex/temp.csv
 		    
-		    mv $datapath/Galex/temp.csv $datapath/Galex/match_Galex_UVOT_OM_all.csv
+		    mv $datapath/Galex/temp.csv $datapath/Galex/match_Galex_UVOT_OM_best.csv
 	    else
-		    mv $datapath/Galex/temp_match.csv $datapath/Galex/match_Galex_UVOT_OM_all.csv
+		    mv $datapath/Galex/temp_match.csv $datapath/Galex/match_Galex_UVOT_OM_best.csv
 	    fi
 	    let j=j+1
 
