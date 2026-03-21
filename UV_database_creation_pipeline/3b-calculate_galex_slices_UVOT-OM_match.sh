@@ -26,7 +26,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
 	    values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
         ocmd="addcol angDist skyDistanceDegrees(ra_1,dec_1,RA_2,DEC_2)*3600" \
         ocmd='keepcols "objid ra_1 dec_1 fuv_flux fuv_fluxerr nuv_flux \
-	    nuv_fluxerr nuv_poserr SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
+	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
 	    join=1and2 find=best ofmt=csv params=1 out=$datapath/Galex/temp_match.csv \
         progress=none
 
@@ -35,7 +35,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
 	    values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
         ocmd="addcol angDist skyDistanceDegrees(ra_1,dec_1,RA_2,DEC_2)*3600" \
         ocmd='keepcols "objid ra_1 dec_1 fuv_flux fuv_fluxerr nuv_flux \
-	    nuv_fluxerr nuv_poserr SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
+	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
 	    join=1and2 find=all ofmt=csv params=1 out=$datapath/Galex/temp_match_all.csv \
         progress=none
 
@@ -50,12 +50,14 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
       		echo "Concatenating matched slices"
 		    stilts tcat ifmt=csv in="$datapath/Galex/match_Galex_UVOT_OM_best.csv \
             $datapath/Galex/temp_match.csv" \
+            icmd="replacecol SRCNUM_CUV toInteger(SRCNUM_CUV)" \
             icmd="replacecol SRCNUM_OM toInteger(SRCNUM_OM)" \
             icmd="replacecol SRCNUM_UVOT toInteger(SRCNUM_UVOT)" \
             out=$datapath/Galex/temp.csv
 
 		    stilts tcat ifmt=csv in="$datapath/Galex/match_Galex_UVOT_OM_all.csv \
             $datapath/Galex/temp_match_all.csv" \
+            icmd="replacecol SRCNUM_CUV toInteger(SRCNUM_CUV)" \
             icmd="replacecol SRCNUM_OM toInteger(SRCNUM_OM)" \
             icmd="replacecol SRCNUM_UVOT toInteger(SRCNUM_UVOT)"\
             out=$datapath/Galex/temp_all.csv
