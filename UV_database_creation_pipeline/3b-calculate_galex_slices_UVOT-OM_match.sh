@@ -14,7 +14,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
 	echo "Performing match with UVOT-OM catalogue for " $f
 	COUNT="$(stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp.csv \
 	in2=$datapath/SOURCE_complete_galaxies.csv matcher=skyerr \
-	values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
+	values1="ra dec 3*nuv_poserr" values2="RA DEC maxReal(2.7,3*POSERR)" \
 	join=1and2 find=best params=1 omode=count progress=none \
     | cut -d ":" -f 3)"
 
@@ -23,26 +23,28 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
     if [ "${COUNT}" -gt 0 ]; then
 	    stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp.csv \
 	    in2=$datapath/SOURCE_complete_galaxies.csv matcher=skyerr \
-	    values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
+        icmd2="addcol MAX_POSERR maxReal(2.7,3*POSERR)" \
+	    values1="ra dec 3*nuv_poserr" values2="RA DEC MAX_POSERR" \
         ocmd="addcol angDist skyDistanceDegrees(ra_1,dec_1,RA_2,DEC_2)*3600" \
         ocmd='keepcols "objid ra_1 dec_1 fuv_flux fuv_fluxerr nuv_flux \
-	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
+	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist MAX_POSERR"' \
 	    join=1and2 find=best ofmt=csv params=1 out=$datapath/Galex/temp_match.csv \
         progress=none
 
 	    stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp_all.csv \
 	    in2=$datapath/SOURCE_complete_galaxies.csv matcher=skyerr \
-	    values1="ra dec 3*nuv_poserr" values2="RA DEC 3*POSERR" \
+        icmd2="addcol MAX_POSERR maxReal(2.7,3*POSERR)" \
+	    values1="ra dec 3*nuv_poserr" values2="RA DEC MAX_POSERR" \
         ocmd="addcol angDist skyDistanceDegrees(ra_1,dec_1,RA_2,DEC_2)*3600" \
         ocmd='keepcols "objid ra_1 dec_1 fuv_flux fuv_fluxerr nuv_flux \
-	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist"' \
+	    nuv_fluxerr nuv_poserr SRCNUM_CUV SRCNUM_OM SRCNUM_UVOT RA_2 DEC_2 POSERR COUNT angDist MAX_POSERR"' \
 	    join=1and2 find=all ofmt=csv params=1 out=$datapath/Galex/temp_match_all.csv \
         progress=none
 
         echo "Computing random match values"
         stilts tmatch2 ifmt1=csv ifmt2=csv in1=$datapath/Galex/temp.csv \
         in2=$datapath/SOURCE_complete_galaxies.csv matcher=skyerr \
-        values1="ra dec 0" values2="RA+0.01667 DEC 3*POSERR" \
+        values1="ra dec 3*nuv_poserr" values2="RA+0.01667 DEC maxReal(2.7,3*POSERR)" \
         join=1and2 find=best params=1 omode=count \
         progress=none >> $datapath/Galex/count_random_match.txt
 
@@ -53,6 +55,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
             icmd="replacecol SRCNUM_CUV toInteger(SRCNUM_CUV)" \
             icmd="replacecol SRCNUM_OM toInteger(SRCNUM_OM)" \
             icmd="replacecol SRCNUM_UVOT toInteger(SRCNUM_UVOT)" \
+            icmd="replacecol MAX_POSERR toDouble(MAX_POSERR)" \
             out=$datapath/Galex/temp.csv
 
 		    stilts tcat ifmt=csv in="$datapath/Galex/match_Galex_UVOT_OM_all.csv \
@@ -60,6 +63,7 @@ for f in $( ls $datapath/Galex/GUVCat_*.csv.gz); do
             icmd="replacecol SRCNUM_CUV toInteger(SRCNUM_CUV)" \
             icmd="replacecol SRCNUM_OM toInteger(SRCNUM_OM)" \
             icmd="replacecol SRCNUM_UVOT toInteger(SRCNUM_UVOT)"\
+            icmd="replacecol MAX_POSERR toDouble(MAX_POSERR)" \
             out=$datapath/Galex/temp_all.csv
 		    
 		    mv $datapath/Galex/temp.csv $datapath/Galex/match_Galex_UVOT_OM_best.csv
