@@ -6,6 +6,49 @@ import gc
 #from astropy import coordinates
 #import astropy.units as u
 
+def select_candidates_color(df_entries,bands):
+    list_flux_dict = {}
+    for flux in bands:
+        flux_name = flux + '_FLUX'
+        flux_err = flux + '_FLUX_ERR'
+        flux_quality = flux + '_QUALITY_FLAG'
+        
+        if flux == 'UVW2':
+            list_color = [flux+'-UVW1', flux+'-UVM2']
+        elif flux =='UVM2':
+            list_color = [flux+'-UVW1']
+        else:
+            raise ValueError(str(flux)+'is not a valid band for this selection. Choose between ''UVW2'' or ''UVM2''')
+
+        list_flux_dict[flux_name] = pd.DataFrame() 
+        
+        for color in list_color:
+            df_color = pd.DataFrame()
+            df_entries_flux = df_entries[['SRCNUM_CUV','MJD',flux_name,flux_err,flux_quality,color,'CAT']].dropna(subset=[flux_name, color]).sort_values(['SRCNUM_CUV','MJD']).reset_index(drop=True)
+            df_entries_flux = df_entries_flux[(df_entries_flux[flux_quality]==0) & (df_entries_flux['CAT']!='GALEX_FUV')]
+            
+            df_entries_flux['COUNT'] = df_entries_flux['SRCNUM_CUV'].copy()
+            df_entries_flux_group = df_entries_flux.groupby('SRCNUM_CUV').agg({'SRCNUM_CUV':'first', 'COUNT' : 'count'})
+            df_entries_flux = df_entries_flux[df_entries_flux['SRCNUM_CUV'].isin(df_entries_flux_group[df_entries_flux_group['COUNT']>2]['SRCNUM_CUV'])]
+             
+            df_entries_flux[color +'_next'] = df_entries_flux.groupby('SRCNUM_CUV')[color].shift(-1)
+            df_entries_flux[color +'_var'] = df_entries_flux[color +'_next'] * df_entries_flux[color]
+            
+            df_entries_test = df_entries_flux[(df_entries_flux[color +'_var']<0)]
+            
+            df_entries_test['COUNT'] = df_entries_test['SRCNUM_CUV'].copy()
+            df_entries_test_groups=df_entries_test.groupby('SRCNUM_CUV').agg({'SRCNUM_CUV':'first', 'COUNT' : 'count'})
+            
+            ind_select = (df_entries_test_groups['COUNT']==1)
+            df_color = df_entries_test_groups.loc[ind_select,:] 
+
+            list_flux_dict[flux_name]=pd.concat([list_flux_dict[flux_name],df_color]) 
+
+        print("Number of candidates in band " + flux_name) 
+        print(str(list_flux_dict[flux_name].shape[0]))
+    
+    return list_flux_dict
+
 def select_candidates_ratio(df_entries,bands,threshold,test_type):
     list_flux_dict = {}
     for flux in bands:
@@ -128,6 +171,7 @@ def print_light_curve_by_flux(df,flux):
             ax.legend(loc='lower right',prop={'size': 8},title= "Flux band " +flux)
             plt.title("Source (RA DEC) : " + "{0:.5f}".format(df.loc[ind_select.index[np.where(ind_select)][0],'RA']) + " " + \
                       "{0:.5f}".format(df.loc[ind_select.index[np.where(ind_select)][0],'DEC']))
+            #plt.show()
             fig.savefig(roots_tfm + '/TDE/Candidates/SCRNUM_CUV_'+str(srcnum)+'_'+flux+'_flux.png',dpi=1200)
             fig.clf()
             plt.close()
@@ -148,17 +192,24 @@ if __name__ == "__main__":
     list_flux_dict_up=select_candidates_ratio(df_entries,bands,4,'equal')    
     list_flux_dict_down=select_candidates_ratio(df_entries,bands,2,'equal')
     
+    # Search for candidates where the color change of sign
+    df_entries['UVW2-UVW1'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
+    df_entries['UVM2-UVW1'] = df_entries['UVM2_FLUX'] - df_entries['UVW1_FLUX']
+    df_entries['UVW2-UVM2'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
+    list_flux_dict_change = select_candidates_color(df_entries,bands)
+    
     # Search for NO candidates where at least one point has a variance ratio higher than 2 in 
     # UVW1 band
-    bands = ['UVW1']
-    list_flux_dict_no_candidates=select_candidates_ratio(df_entries,bands,2,'superior')
+    #bands = ['UVW1']
+    #list_flux_dict_no_candidates=select_candidates_ratio(df_entries,bands,2,'superior')
     
     list_flux_dict={}
     for flux in ['UVW2','UVM2']:
         flux_name = flux+'_FLUX'
         list_flux_dict[flux_name] = pd.DataFrame() 
         list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict_up[flux_name].loc[list_flux_dict_up[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_down[flux_name]['SRCNUM_CUV']),'SRCNUM_CUV']
-        list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[~list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_no_candidates['UVW1_FLUX']['SRCNUM_CUV']),'SRCNUM_CUV']
+        #list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[~list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_no_candidates['UVW1_FLUX']['SRCNUM_CUV']),'SRCNUM_CUV']
+        list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_change[flux_name]['SRCNUM_CUV']),'SRCNUM_CUV']        
         print("Number of final candidates in band " + flux_name) 
         print(str(list_flux_dict[flux_name].shape[0]))
   
