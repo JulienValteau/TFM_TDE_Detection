@@ -186,30 +186,30 @@ if __name__ == "__main__":
     
     #list_flux_dict = select_candidates_diff(df_entries)
     
-    # Search for candidates where one point has a variance ratio higher than 4 and all 
+    # Search for candidates where one point has a variance ratio higher than 3 and all 
     # the other values have variance ratio lower than 1.5 in band UVW2 and UVM2
     bands = ['UVW2', 'UVM2']
-    list_flux_dict_up=select_candidates_ratio(df_entries,bands,4,'equal')    
+    list_flux_dict_up=select_candidates_ratio(df_entries,bands,3,'equal')    
     list_flux_dict_down=select_candidates_ratio(df_entries,bands,2,'equal')
     
     # Search for candidates where the color change of sign
-    df_entries['UVW2-UVW1'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
-    df_entries['UVM2-UVW1'] = df_entries['UVM2_FLUX'] - df_entries['UVW1_FLUX']
-    df_entries['UVW2-UVM2'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
-    list_flux_dict_change = select_candidates_color(df_entries,bands)
+    #df_entries['UVW2-UVW1'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
+    #df_entries['UVM2-UVW1'] = df_entries['UVM2_FLUX'] - df_entries['UVW1_FLUX']
+    #df_entries['UVW2-UVM2'] = df_entries['UVW2_FLUX'] - df_entries['UVW1_FLUX']
+    #list_flux_dict_change = select_candidates_color(df_entries,bands)
     
     # Search for NO candidates where at least one point has a variance ratio higher than 2 in 
     # UVW1 band
-    #bands = ['UVW1']
-    #list_flux_dict_no_candidates=select_candidates_ratio(df_entries,bands,2,'superior')
+    bands = ['UVW1']
+    list_flux_dict_no_candidates=select_candidates_ratio(df_entries,bands,2,'superior')
     
     list_flux_dict={}
     for flux in ['UVW2','UVM2']:
         flux_name = flux+'_FLUX'
         list_flux_dict[flux_name] = pd.DataFrame() 
         list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict_up[flux_name].loc[list_flux_dict_up[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_down[flux_name]['SRCNUM_CUV']),'SRCNUM_CUV']
-        #list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[~list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_no_candidates['UVW1_FLUX']['SRCNUM_CUV']),'SRCNUM_CUV']
-        list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_change[flux_name]['SRCNUM_CUV']),'SRCNUM_CUV']        
+        list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[~list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_no_candidates['UVW1_FLUX']['SRCNUM_CUV']),'SRCNUM_CUV']
+        #list_flux_dict[flux_name]['SRCNUM_CUV'] = list_flux_dict[flux_name].loc[list_flux_dict[flux_name]['SRCNUM_CUV'].isin(list_flux_dict_change[flux_name]['SRCNUM_CUV']),'SRCNUM_CUV']        
         print("Number of final candidates in band " + flux_name) 
         print(str(list_flux_dict[flux_name].shape[0]))
   
