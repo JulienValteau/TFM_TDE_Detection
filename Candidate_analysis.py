@@ -19,6 +19,9 @@ import subprocess
 #import webbrowser
 #import mpld3
 from astropy.time import Time
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+from astropy.coordinates import Angle
 
 
 def print_light_curve(df,TDE_path):
@@ -43,15 +46,31 @@ def print_light_curve(df,TDE_path):
             list_cat = df.loc[ind_select2,'CAT'].unique()           
             
             for cat in list_cat:
-                ind = ind_select2 & (df['CAT'] == cat)
+                ind = ind_select2 & (df['CAT'] == cat) & (df['DETECTION_FLAG'] == True)
+                if len(np.where(ind)[0]) > 0:
+                    ax.errorbar(df.loc[ind,'MJD'],df.loc[ind,flux_key],
+                                yerr=df.loc[ind,flux_err_key], \
+                                fmt=fmt_dict[df.loc[df.loc[ind,'CAT'].index[0],'CAT']], color=color_dict[flux], \
+                                ecolor=color_dict[flux])
+                ind2 = ind_select2 & (df['CAT'] == cat) & (df['DETECTION_FLAG'] == False)
+                if len(np.where(ind2)[0]) > 0:
+                    ymin, ymax = ax.get_ylim()
+                    ax.errorbar(df.loc[ind2,'MJD'],df.loc[ind2,flux_key],
+                                yerr=0.05 * (ymax - ymin), \
+                                fmt=fmt_dict[df.loc[df.loc[ind2,'CAT'].index[0],'CAT']], color=color_dict[flux], \
+                                ecolor=color_dict[flux],uplims=True,capsize=0)
+            if len(np.where(ind)[0]) > 0:
                 ax.errorbar(df.loc[ind,'MJD'],df.loc[ind,flux_key],
                             yerr=df.loc[ind,flux_err_key], \
                             fmt=fmt_dict[df.loc[df.loc[ind,'CAT'].index[0],'CAT']], color=color_dict[flux], \
-                            ecolor=color_dict[flux])
-            ax.errorbar(df.loc[ind,'MJD'],df.loc[ind,flux_key],
-                        yerr=df.loc[ind,flux_err_key], \
-                        fmt=fmt_dict[df.loc[df.loc[ind,'CAT'].index[0],'CAT']], color=color_dict[flux], \
-                        ecolor=color_dict[flux],label=flux)
+                            ecolor=color_dict[flux],label=flux)
+            else:
+                ymin, ymax = ax.get_ylim()
+                ax.errorbar(df.loc[ind2,'MJD'],df.loc[ind2,flux_key],
+                            yerr=0.05 * (ymax - ymin), \
+                            fmt=fmt_dict[df.loc[df.loc[ind2,'CAT'].index[0],'CAT']], color=color_dict[flux], \
+                            ecolor=color_dict[flux],uplims=True,capsize=0,label=flux)
+                
             
         #ax.axvline(x=df_tde.loc[tde,'MJD'],color='orange',label='TDE detection date')
         ax.set_xlabel('Time [Modified Julian Date]')
@@ -67,7 +86,8 @@ def print_light_curve(df,TDE_path):
                 transform=ax.transAxes, fontsize=8, verticalalignment='top')
         plt.title("Source (RA DEC) : " + "{0:.5f}".format(ra) + " " + \
                   "{0:.5f}".format(dec))
-        fig.savefig(roots_tfm + TDE_path +'/Test/SCRNUM_CUV_'+str(srcnum)+'.png',dpi=1200)
+        plt.tight_layout()
+        fig.savefig(f"{roots_tfm}{TDE_path}/Test/SCRNUM_CUV_{int(srcnum)}.png",dpi=1200)
         #mpld3.save_html(fig, roots_tfm + TDE_path +'SCRNUM_CUV_'+str(srcnum)+'.html')
         fig.clf()
         plt.close()
@@ -81,41 +101,44 @@ def print_source_infos(df_results,TDE_path):
     # Addition of galex observation date
     df_test_galex = df_results[(df_results['CAT']=='GALEX_NUV')]
     for index in df_test_galex.index:
-       result1,result2,result3,result4 = run_galex_client_source_tilt(df_results.loc[index,'RA'],
-                                                                      df_results.loc[index,'DEC'],
-                                                                      60)
-
-       if len(result1)>2 and len(result3)>2 and len(result2)>2 and len(result4)>2:
-           if (result1[3].split(' ')[0] == result2[3].split(' ')[0]) and \
-           (result2[3].split(' ')[0]==result3[3].split(' ')[0]) and \
-           (result3[3].split(' ')[0]==result4[3].split(' ')[0]) and 'No data' not in result1[3]:
-               result = result1[3].split(' ')[0]
-               print(df_results.loc[index,'SRCNUM_CUV'], ' ',result,' ',Time(result, format="isot", scale="utc").mjd)
-               df_cor.loc[index,'MJD'] = Time(result, format="isot", scale="utc").mjd 
+       result_list = run_galex_client_source_tilt(df_results.loc[index,'RA'],\
+                                                  df_results.loc[index,'DEC'],\
+                                                  60)
+       if len(np.where([len(result)>2 for result in result_list])[0]) > 2:
+           date_list = [result[3].split(' ')[0] for result in result_list if len(result) > 2]
+           possible_date = max(date_list,key=date_list.count)
+           frequence = date_list.count(possible_date)
+             
+           if frequence>2 and 'No' not in possible_date:
+               print(df_results.loc[index,'SRCNUM_CUV'], ' ',possible_date,' ', 
+                     Time(possible_date, format="isot", scale="utc").mjd,' Frequence :',frequence)
+               df_cor.loc[index,'MJD'] = Time(possible_date, format="isot", scale="utc").mjd 
            else:
                print('Trying points closer to the source')
-               result1,result2,result3,result4 = run_galex_client_source_tilt(df_results.loc[index,'RA'],
-                                                                              df_results.loc[index,'DEC'],
-                                                                              20)
-               if len(result1)>2 and len(result3)>2 and len(result2)>2 and len(result4)>2:
-                   if (result1[3].split(' ')[0] == result2[3].split(' ')[0]) and \
-                   (result2[3].split(' ')[0]==result3[3].split(' ')[0]) and \
-                   (result3[3].split(' ')[0]==result4[3].split(' ')[0] and 'No data' not in result1[3]):
-                      
-                       result = result1[3].split(' ')[0]
-                       print(df_results.loc[index,'SRCNUM_CUV'], ' ',result,' ',Time(result, format="isot", scale="utc").mjd)
-                       df_cor.loc[index,'MJD'] = Time(result, format="isot", scale="utc").mjd 
+               result_list = run_galex_client_source_tilt(df_results.loc[index,'RA'],
+                                                          df_results.loc[index,'DEC'],
+                                                          20)         
+               if len(np.where([len(result)>2 for result in result_list])[0]) > 2:                   
+                   date_list = [result[3].split(' ')[0] for result in result_list if len(result) > 2]
+                   possible_date = max(date_list,key=date_list.count)
+                   frequence = date_list.count(possible_date)
+                   
+                   if frequence>2 and 'No' not in possible_date: 
+                       print(df_results.loc[index,'SRCNUM_CUV'], ' ',possible_date,' ',
+                             Time(possible_date, format="isot", scale="utc").mjd,' Frequence :',frequence)
+                       df_cor.loc[index,'MJD'] = Time(possible_date, format="isot", scale="utc").mjd 
                    else : 
-                       if 'No data' in result1[3]:
-                           print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',result1.stdout.split('\n')[3],', ',result2.stdout.split('\n')[3], \
-                            ', ',result3.stdout.split('\n')[3],', ' , result4.stdout.split('\n')[3],', ')
-                       else:
-                           print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',result1.stdout.split('\n')[3].split(' ')[0],', ',result2.stdout.split('\n')[3].split(' ')[0], \
-                            ', ',result3.stdout.split('\n')[3].split(' ')[0],', ' , result4.stdout.split('\n')[3].split(' ')[0],', ') 
+                        if 'No' in possible_date:
+                            print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',result_list[0][3],', ',result_list[1][3], \
+                            ', ',result_list[2][3],', ' , result_list[3][3])
+                        else:
+                           print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',date_list[0],', ', 
+                                 date_list[1],', ', date_list[2],', ' , 
+                                 date_list[3],', ') 
                else:
-                   print(result1,result2,result3,result4)
+                   print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',result_list)
        else:
-           print(result1,result2,result3,result4)
+           print(df_results.loc[index,'SRCNUM_CUV'],  'NaN : ',result_list)
     
     # Create the detection flag
     df_cor['DETECTION_FLAG'] = True
@@ -124,14 +147,42 @@ def print_source_infos(df_results,TDE_path):
     ind_galex_source = df_cor['SRCNUM_CUV'].isin(df_test_galex['SRCNUM_CUV'])
     df_no_galex_detection = df_cor.loc[~ind_galex_source,:].groupby('SRCNUM_CUV').agg({'SRCNUM_CUV':'first',\
                                                                                        'RA':'first', \
-                                                                                       'DEC' : 'first'})
+                                                                                      'DEC' : 'first'})
+    beta_NUV_UVW2 = [-16.51546352,0.34005235,0.10287565]
+    beta_NUV_UVM2 =[-16.71595217,0.37372027,0.125861]
+    beta_NUV_UVW1 = [-16.95676674,0.36327972,0.2130301]
     for index in df_no_galex_detection.index:
         result= subprocess.run(["python","client_galex.py", 
-                            str(round(df_no_galex_detection.loc[index,'RA'],5)), 
-                            str(round(df_no_galex_detection.loc[index,'DEC'],5))], 
+                            str(round(df_no_galex_detection.loc[index,'RA'],6)), 
+                            str(round(df_no_galex_detection.loc[index,'DEC'],6))], 
                            capture_output=True,text=True).stdout.split('\n')
-        print(result)
-        #df_cor.iloc[-1,['DETECTION_FLAG','CAT','UVW2_FLUX','SRCNUM_CUV','MJD']] = [False, 'GALEX_NUV',results,results]
+        #print(result)
+        if '<' in result[3]:
+            nuv_flux_jy = float(result[3].split(' < ')[1])
+            print(df_no_galex_detection.loc[index,'SRCNUM_CUV'],  'Upper limit : ',Time(result[3].split(' < ')[0], format="isot", scale="utc").mjd,' ', 
+                  ' NUV:',str(result[3].split(' < ')[1]),
+                  ' UVW2:',str(10**f(np.log10(nuv_flux_jy),beta_NUV_UVW2)),
+                  ' UVM2:',str(10**f(np.log10(nuv_flux_jy),beta_NUV_UVM2)), 
+                  ' UVW1:',str(10**f(np.log10(nuv_flux_jy),beta_NUV_UVW1)))
+            df_cor.loc[len(df_cor),:] = np.nan
+
+            df_cor.loc[len(df_cor)-1,['DETECTION_FLAG','CAT',\
+                            'UVW2_FLUX','UVM2_FLUX','UVW1_FLUX',\
+                            'UVW2_QUALITY_FLAG','UVM2_QUALITY_FLAG','UVW1_QUALITY_FLAG',\
+                            'SRCNUM_CUV','MJD']] = \
+                       [False, 'GALEX_NUV',\
+                        10**f(np.log10(nuv_flux_jy),beta_NUV_UVW2),\
+                        10**f(np.log10(nuv_flux_jy),beta_NUV_UVM2),\
+                        10**f(np.log10(nuv_flux_jy),beta_NUV_UVW1),\
+                        0, 0, 0, \
+                        df_no_galex_detection.loc[index,'SRCNUM_CUV'],\
+                        Time(result[3].split(' < ')[0], format="isot", scale="utc").mjd]
+        else:
+            ra = float(result[1].split(':')[1].split(' ')[2])
+            dec = float(result[1].split(':')[1].split(' ')[3])
+            c1=SkyCoord(ra=df_no_galex_detection.loc[index,'RA']*u.deg, dec=df_no_galex_detection.loc[index,'DEC']*u.deg, frame='icrs')
+            c2=SkyCoord(ra=ra*u.deg, dec=dec*u.deg, frame='icrs')
+            print(df_no_galex_detection.loc[index,'SRCNUM_CUV'],  'Detection : RA ',ra, ' DEC ', dec,' Sep ', Angle(str(c1.separation(c2))).arcsec)
     
     
     # Addition of Mass and wise bands
@@ -172,24 +223,29 @@ def get_list_best_CUV(TDE_path):
     return list_CUV
 
 def run_galex_client_source_tilt(ra,dec,tilt):
-    result1= subprocess.run(["python","client_galex.py", 
-                            str(round(ra+tilt/3600,5)), 
-                            str(round(dec,5))], 
-                           capture_output=True,text=True).stdout.split('\n')
-    result2= subprocess.run(["python","client_galex.py", 
-                            str(round(ra-tilt/3600,5)), 
-                            str(round(dec,5))], 
-                           capture_output=True,text=True).stdout.split('\n')
-    result3= subprocess.run(["python","client_galex.py", 
-                            str(round(ra,5)), 
-                            str(round(dec+tilt/3600,5))], 
-                           capture_output=True,text=True).stdout.split('\n')
-    result4= subprocess.run(["python","client_galex.py", 
-                            str(round(ra,5)), 
-                            str(round(dec-tilt/3600,5))], 
-                           capture_output=True,text=True).stdout.split('\n')
+    result =[]
+    result.append(subprocess.run(["python","client_galex.py", 
+                                  str(round(ra+tilt/3600,5)), 
+                                  str(round(dec,5))], 
+                                 capture_output=True,text=True).stdout.split('\n'))
+    result.append(subprocess.run(["python","client_galex.py", 
+                                  str(round(ra-tilt/3600,5)), 
+                                  str(round(dec,5))], 
+                                 capture_output=True,text=True).stdout.split('\n'))
+    result.append(subprocess.run(["python","client_galex.py", 
+                                  str(round(ra,5)), 
+                                  str(round(dec+tilt/3600,5))], 
+                                 capture_output=True,text=True).stdout.split('\n'))
+    result.append(subprocess.run(["python","client_galex.py", 
+                                  str(round(ra,5)), 
+                                  str(round(dec-tilt/3600,5))], 
+                                 capture_output=True,text=True).stdout.split('\n'))
     
-    return result1,result2,result3,result4
+    return result
+
+def f(x: np.ndarray, beta: np.ndarray) -> np.ndarray:
+    b0, b1, b2 = beta
+    return b0+ b1*x+ b2*x**2
 
 # Fonction appelée lors du clic
 #def open_site(event,ra,dec):
@@ -203,10 +259,14 @@ if __name__ == "__main__":
     #TDE_path = '/TDE/Candidates/Ratio higher than 4 and rest lower than 2 (UVW2 and UVM2),  UVW1 lower than 2/Best/All bands/Best'
     #TDE_path = '/TDE/Candidates/Ratio higher than 5 and rest lower than 2/Potential TDE/All bands/Best'
     #TDE_path = '/TDE/Candidates/Ratio higher than 4 and rest lower than 2 (UVW2 and UVM2), color inversion/All bands/Best'
-    TDE_path = '/TDE/Candidates/Ratio higher than 3 and rest lower than 2 (UVW2 and UVM2), UVW1 lower than 2/Best/All bands/Best/Not retained'
+    #TDE_path = '/TDE/Candidates/Ratio higher than 3 and rest lower than 2 (UVW2 and UVM2), UVW1 lower than 2/Best/All bands/Best/Not retained'
+    TDE_path = '/TDE/Candidates/Reanalize_galex'
     
     ## Print all bands
-    list_best_CUV = get_list_best_CUV(TDE_path)
+    #list_best_CUV = get_list_best_CUV(TDE_path)
+    #list_best_CUV = [8555, 96685, 99220, 154467, 172161, 200050, 227141, 259263,
+    #                 276861, 34929, 44098, 124333, 190956, 214117]
+    list_best_CUV = [151515]
     df_results = df_entries[df_entries['SRCNUM_CUV'].isin(list_best_CUV)]
     df_results = df_results[df_results['CAT'] != 'GALEX_FUV']
     
