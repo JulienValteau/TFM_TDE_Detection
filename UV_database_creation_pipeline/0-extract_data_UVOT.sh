@@ -1,7 +1,13 @@
 #!/usr/bin/bash
 j=0
+# Path to the data
+# Note that the existence of a sub-repository named Swift-UVOT with 
+# the catalogue as uvotssc1_1.fit is necessary.
+datapath_ext="/media/julien/TOSHIBA EXT/Copie_non_miroir/Master/TFM/Data"
 datapath="../../../Data"
 
+# Extract the required columns for UVOT catalogue
+# Note that the POSEERR is computed from RA_ERR and DEC_ERR
 echo "Extracting the required columns for UVOT Catalogue"
 stilts tpipe ifmt=fits \
 cmd='addcol -after DEC POSERR sqrt(square(RA_ERR*cosDeg(DEC))+square(DEC_ERR))' \
@@ -12,11 +18,12 @@ B_FLUX B_FLUX_ERR V_FLUX V_FLUX_ERR UVW2_QUALITY_FLAG \
 UVM2_QUALITY_FLAG UVW1_QUALITY_FLAG U_QUALITY_FLAG B_QUALITY_FLAG \
 V_QUALITY_FLAG UVW2_EXTENDED UVM2_EXTENDED UVW1_EXTENDED \
 U_EXTENDED B_EXTENDED V_EXTENDED"' \
-omode=out ofmt=fits in=$datapath/Swift-UVOT/uvotssc1_1.fit#1 \
+omode=out ofmt=fits in="$datapath_ext"/uvotssc1_1.fit#1 \
 out=$datapath/Swift-UVOT/temp.fits
 
+# Divide the time table in various parts in order to spare RAM for match
 echo "Dividing the time table in various part"
-python Utilities/divide_time_table.py "Swift-UVOT" "uvotssc1_1.fit"
+python Utilities/divide_time_table.py "$datapath_ext/uvotssc1_1.fit" "$datapath/Swift-UVOT"
 
 echo "Match of each time table with the main catalogue"
 j=0
@@ -35,6 +42,7 @@ for f in $( ls $datapath/Swift-UVOT/temp_part*.fits); do
     join=1and2 find=best1 ofmt=csv out=$datapath/Swift-UVOT/temp_match.csv \
     progress=none
 
+    # Concatenate the matched slices only if a slice already exists
     if [ $j -gt 0 ]; then
   		echo "Concatenating matched slices"
 	    stilts tcat ifmt=csv in="$datapath/Swift-UVOT/UVOT_complete.csv \
@@ -43,6 +51,8 @@ for f in $( ls $datapath/Swift-UVOT/temp_part*.fits); do
         out=$datapath/Swift-UVOT/temp.csv
 		    
 	    mv $datapath/Swift-UVOT/temp.csv $datapath/Swift-UVOT/UVOT_complete.csv
+        
+    # Otherwise just rename the single slice
     else
 	    mv $datapath/Swift-UVOT/temp_match.csv $datapath/Swift-UVOT/UVOT_complete.csv
     fi
@@ -65,6 +75,7 @@ cmd='sort SRCNUM' \
 omode=out ofmt=csv in=$datapath/Swift-UVOT/UVOT_complete.csv \
 out=$datapath/Swift-UVOT/Entries_UVOT_csv
 
+# Remove the temporary files used
 rm $datapath/Swift-UVOT/temp.fits $datapath/Swift-UVOT/temp_*.fits $datapath/Swift-UVOT/temp_match.csv $datapath/Swift-UVOT/UVOT_complete.csv
 
 

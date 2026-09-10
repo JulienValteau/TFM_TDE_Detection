@@ -1,5 +1,13 @@
 #!/usr/bin/bash
 
+# Path to the data
+# Note that the existence of a two sub-repositories named respectively
+# XMM-Newton and Swift-UVOT with the tables of single positions per 
+# catalogue in it named respectively SUSS6_ra_dec_per_src.fits 
+# and uvot_ra_dec_per_src.fits is necessary and a subrepository Regalade
+# with the extracted columns from the complete Regalade catalog using TOPCAT
+# named regalade_ra_dec_plus.fits is necessary. Also a subrepository where 
+# the output files will be saved named Match_OM within Swift-UVOT is required
 datapath="../../../Data"
 echo "Performing match calculation OM-Regalade catalogue skyerr"
 stilts tmatch2 ifmt1=fits ifmt2=fits in1=$datapath/XMM-Newton/SUSS6_ra_dec_per_src.fits \
